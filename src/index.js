@@ -15,11 +15,13 @@ const participantValidationSchema = joi.object({
     name: joi.string().required().min(2),
 });
 
-  const messageValidationSchema = joi.object({
-    to: joi.string().required(),
-    text: joi.string().required(),
-    type: joi.string().valid("message", "private_message").required(),
-  });
+const messageValidationSchema = joi.object({
+  from: joi.string().required(),
+  to: joi.string().required().min(3),
+  text: joi.string().required().min(1),
+  type: joi.string().required().valid("message", "private_message"),
+  time: joi.string(),
+});
 
 const mongoClient = new MongoClient(process.env.DATABASE_URL, { useNewUrlParser: true });
 
@@ -73,31 +75,25 @@ app.get('/participants', async (req, res) => {
 
 app.post("/messages", async (req, res) => {
   const { to, text, type } = req.body;
-  const from = req.headers.user;
+  const { user } = req.headers;
 
-  const { error } = messageValidationSchema.validate(
-    { to, text, type },
-    { abortEarly: false }
-  );
-
-  if (error) {
-    const errors = error.details.map((detail) => detail.message);
-    return res.status(422).send(errors);
-  }
+  const message = {
+    from: user,
+    to,
+    text,
+    type,
+    time: dayjs().format("HH:mm:ss"),
+  };
 
   try {
-    const participantExists = await participants.findOne({ name: from });
-    if (!participantExists) {
-      return res.status(422).send("Participante não encontrado");
+    const { error } = messageValidationSchema.validate(message, { abortEarly: false });
+
+    if (error) {
+      const errors = error.details.map((detail) => detail.message);
+      return res.status(422).send(errors);
     }
 
-    await messages.insertOne({
-      from,
-      to,
-      text,
-      type,
-      time: dayjs().format("HH:mm:ss"),
-    });
+    await messages.insertOne(message);
 
     res.sendStatus(201);
   } catch (err) {
@@ -107,20 +103,31 @@ app.post("/messages", async (req, res) => {
 });
 
 app.get("/messages", async (req, res) => {
+  const limit = Number(req.query.limit);
+  const { user } = req.headers;
+
   try {
-    const user = req.headers.user;
-    let allMessages;
-    if (req.query.limit) {
-      allMessages = await messages.find({ $or: [{ privacy: "public" }, { sender: user }, { receiver: user }] }).limit(parseInt(req.query.limit)).toArray();
-    } else {
-      allMessages = await messages.find({ $or: [{ privacy: "public" }, { sender: user }, { receiver: user }] }).toArray();
+    const messages = await messages.find({
+        $or: [
+          { from: user },
+          { to: { $in: [user, "Todos"] } },
+          { type: "message" },
+        ],
+      })
+      .limit(limit)
+      .toArray();
+
+    if (messages.length === 0) {
+      return res.status(404).send("Não foi encontrada nenhuma mensagem!");
     }
-    res.json(allMessages);
+
+    res.send(messages);
   } catch (err) {
     console.log(err);
     res.sendStatus(500);
   }
 });
+
 
 app.post("/status", async (req, res) => {
   const { user } = req.headers;
