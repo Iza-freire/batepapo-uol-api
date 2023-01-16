@@ -43,7 +43,7 @@ app.post("/participants", async (req, res) => {
         await messages.insertOne({
             from: name,
             to: "Todos",
-            text: "entrei na sala...",
+            text: "entra na sala...",
             type: "status",
             time: dayjs().format("HH:mm:ss"),
         });
@@ -56,9 +56,14 @@ app.post("/participants", async (req, res) => {
 });
 
 app.get('/participants', async (req, res) => {
-    const allParticipants = await participants.find({}).toArray();
-    res.send(allParticipants);
-})
+    try {
+        const allParticipants = await participants.find({}).toArray();
+        res.json(allParticipants);
+    } catch (err) {
+        console.log(err);
+        res.sendStatus(500);
+    }
+    });
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
