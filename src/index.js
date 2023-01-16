@@ -15,6 +15,12 @@ const participantValidationSchema = joi.object({
     name: joi.string().required().min(2),
 });
 
+  const messageValidationSchema = joi.object({
+    to: joi.string().required(),
+    text: joi.string().required(),
+    type: joi.string().valid("message", "private_message").required(),
+  });
+
 const mongoClient = new MongoClient(process.env.DATABASE_URL, { useNewUrlParser: true });
 
 const db = mongoClient.db();
@@ -63,7 +69,45 @@ app.get('/participants', async (req, res) => {
         console.log(err);
         res.sendStatus(500);
     }
+});
+
+app.post("/messages", async (req, res) => {
+  const { to, text, type } = req.body;
+  const from = req.headers.user;
+
+  const { error } = messageValidationSchema.validate(
+    { to, text, type },
+    { abortEarly: false }
+  );
+
+  if (error) {
+    const errors = error.details.map((detail) => detail.message);
+    return res.status(422).send(errors);
+  }
+
+  try {
+    const participantExists = await participants.findOne({ name: from });
+    if (!participantExists) {
+      return res.status(422).send("Participante não encontrado");
+    }
+
+    await messages.insertOne({
+      from,
+      to,
+      text,
+      type,
+      time: dayjs().format("HH:mm:ss"),
     });
+
+    res.sendStatus(201);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+
+
+
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
