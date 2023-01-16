@@ -105,19 +105,38 @@ app.post("/messages", async (req, res) => {
     res.sendStatus(500);
   }
 });
+
 app.get("/messages", async (req, res) => {
-    try {
-        let allMessages;
-        if (req.query.limit) {
-            allMessages = await messages.find({}).limit(parseInt(req.query.limit)).toArray();
-        } else {
-            allMessages = await messages.find({}).toArray();
-        }
-        res.json(allMessages);
-    } catch (err) {
-        console.log(err);
-        res.sendStatus(500);
+  try {
+    const user = req.headers.user;
+    let allMessages;
+    if (req.query.limit) {
+      allMessages = await messages.find({ $or: [{ privacy: "public" }, { sender: user }, { receiver: user }] }).limit(parseInt(req.query.limit)).toArray();
+    } else {
+      allMessages = await messages.find({ $or: [{ privacy: "public" }, { sender: user }, { receiver: user }] }).toArray();
     }
+    res.json(allMessages);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+
+app.post("/status", async (req, res) => {
+  const user = req.headers.user;
+
+  try {
+    const participantExists = await participants.findOne({ name: user });
+    if (!participantExists) {
+      return res.status(404).send();
+    }
+
+    await participants.updateOne({ name: user }, { $set: { lastStatus: Date.now() } });
+    res.sendStatus(200);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
 });
 
 
