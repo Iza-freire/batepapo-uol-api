@@ -139,6 +139,23 @@ app.post("/status", async (req, res) => {
   }
 });
 
+setInterval(async () => {
+    const inactiveParticipants = await participants.find({ lastStatus: { $lt: Date.now() - 10000 } }).toArray();
+    if (inactiveParticipants.length > 0) {
+        await participants.deleteMany({ lastStatus: { $lt: Date.now() - 10000 } });
+        for (let i = 0; i < inactiveParticipants.length; i++) {
+            await messages.insertOne({
+                from: inactiveParticipants[i].name,
+                to: "Todos",
+                text: "sai da sala...",
+                type: "status",
+                time: dayjs().format("HH:mm:ss"),
+            });
+        }
+    }
+}, 15000);
+
+
 
 
 app.listen(port, () => {
