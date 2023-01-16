@@ -58,7 +58,7 @@ app.post("/participants", async (req, res) => {
 app.get('/participants', async (req, res) => {
     const allParticipants = await participants.find({}).toArray();
     res.send(allParticipants);
-});
+})
 
 app.listen(port, () => {
     console.log(`Server running on port ${port}`);
