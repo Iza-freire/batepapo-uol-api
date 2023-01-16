@@ -105,7 +105,20 @@ app.post("/messages", async (req, res) => {
     res.sendStatus(500);
   }
 });
-
+app.get("/messages", async (req, res) => {
+    try {
+        let allMessages;
+        if (req.query.limit) {
+            allMessages = await messages.find({}).limit(parseInt(req.query.limit)).toArray();
+        } else {
+            allMessages = await messages.find({}).toArray();
+        }
+        res.json(allMessages);
+    } catch (err) {
+        console.log(err);
+        res.sendStatus(500);
+    }
+});
 
 
 
